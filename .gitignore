@@ -1,0 +1,12 @@
+runs/
+.venv/
+.state/
+.comfy/
+outputs/
+output/
+*.env
+.env*
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store

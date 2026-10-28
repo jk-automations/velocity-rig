@@ -1,0 +1,21 @@
+[project]
+name = "comfyui-velocity-rig"
+version = "1.0.0"
+description = "Camera rigs, vehicle archetypes, styles and mount physics FX for ComfyUI + LTX-2.5, open weights only"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "numpy",
+    "pillow",
+]
+
+[project.urls]
+Homepage = "https://github.com/jk-automations/velocity-rig"
+Repository = "https://github.com/jk-automations/velocity-rig"
+
+[tool.comfy]
+PublisherId = "jk"
+DisplayName = "Velocity Rig"
+requires-comfyui = ">=0.35.0"
