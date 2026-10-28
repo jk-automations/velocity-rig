@@ -120,7 +120,7 @@ Every submit is saved as `<name>.graph.json` next to its output (the exact API g
 
 Developed on a Mac Studio (M3 Ultra, unified memory) with ComfyUI started as `--bf16-unet --cpu-vae`. Measured there: **LTX-2.5 22B distilled about 4.3 min per 3 s clip at 768x448** (two-stage, with audio), **a Qwen Image Edit plate about 1 min**.
 The full model set is about 150 GB on disk (LTX set about 71 GB, Qwen Edit set about 58 GB, Z-Image set about 21 GB), so this needs a machine with tens of GB of GPU or unified memory. Not tested on CUDA by us.
-A 6-shot reel is about 30 minutes of LTX time plus plates.
+A 6-shot reel is about 30 minutes of LTX time plus plates. By default (`--one-prompt`) the runner chains every plate into its LTX graph and merges the whole reel into one ComfyUI prompt (`comfy.merge_graphs` shares the model loaders), so renders play well with a shared GPU queue: one turn per reel instead of one per render. `--no-one-prompt` batches plates (6 per prompt) and clips (`CLIP_CHUNK` = 3 per prompt) separately. The saved `*.graph.json` of a merged render is the merged graph.
 
 ## Honest limitations
 

@@ -4,6 +4,7 @@ Every render goes through comfy_sdk -> Comfy API v2 (Comfy Developer Platform). 
 ComfyUI (ops/serve.sh); point COMFY_BASE_URL at Comfy Cloud or a serverless deployment instead and nothing else changes.
 
 RIG_EVENTS=1 makes run() print "@@graph" / "@@live" lines (the web app reads them for the live node view).
+Renders can be merged into one ComfyUI prompt (run_many / chain), so a shared GPU queue hands out one turn per reel instead of one per render.
 RIG_DRY=1 (runner --dry-run) skips the SDK: the real graph is still built and saved, outputs are placeholders.
 """
 from __future__ import annotations
@@ -83,20 +84,20 @@ def _submit_and_wait(c, graph, inputs, timeout, record, gfile):
     return job
 
 
-def _dims(graph: dict, default=(1024, 576)):
+def _dims(graph: dict, video: bool, default=(1024, 576)):
+    want = "EmptyLTXVLatentVideo" if video else "EmptySD3LatentImage"
     for n in graph.values():
-        i = n.get("inputs", {})
-        if n.get("class_type") == "EmptySD3LatentImage":
-            return int(i["width"]), int(i["height"])
-        if n.get("class_type") == "EmptyLTXVLatentVideo":
-            return int(i["width"]) * 2, int(i["height"]) * 2
+        if n.get("class_type") == want:
+            i = n["inputs"]
+            return (int(i["width"]) * 2, int(i["height"]) * 2) if video else (int(i["width"]), int(i["height"]))
     return default
 
 
 def _placeholder(dest: Path, graph: dict, label: str):
-    w, h = _dims(graph)
+    video = dest.suffix.lower() in (".mp4", ".mov", ".webm")
+    w, h = _dims(graph, video)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.suffix.lower() in (".mp4", ".mov", ".webm"):
+    if video:
         ff = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
         subprocess.run([ff, "-y", "-loglevel", "error", "-f", "lavfi", "-i", f"testsrc2=size={w - w % 2}x{h - h % 2}:rate=24:duration=1",
                         "-f", "lavfi", "-i", "sine=frequency=220:duration=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
@@ -173,3 +174,80 @@ def run(graph: dict, outputs: dict, *, url: str | None = None, timeout: float = 
             dest.mkdir(parents=True, exist_ok=True)
             saved[node_id] = [f.to_file(dest / f.name) for f in files]
     return saved
+
+
+# A shared GPU queue (e.g. a machine-wide GPU gate) hands the GPU out one ComfyUI prompt at a time, so several renders merged into one
+# prompt get one turn instead of queueing once per render behind other projects' long jobs.
+_NO_SHARE = {"LoadImage", "LoadVideo", "SaveImage", "SaveVideo", "SaveAudio", "PreviewImage"}
+
+
+def _is_link(v):
+    return isinstance(v, list) and len(v) == 2 and isinstance(v[0], str) and isinstance(v[1], int)
+
+
+def merge_graphs(graphs: list[dict]) -> tuple[dict, list[dict[str, str]]]:
+    """Merge API graphs into one, sharing identical upstream nodes (model loaders, encoders).
+    Returns the merged graph and, per input graph, a map old node id -> merged node id."""
+    merged, by_sig, remaps = {}, {}, []
+    for i, g in enumerate(graphs):
+        remap, pending = {}, dict(g)
+        while pending:
+            ready = [n for n, node in pending.items()
+                     if not any(_is_link(v) and v[0] in pending for v in node["inputs"].values())]
+            if not ready:
+                raise ValueError("graph has a cycle")
+            for nid in ready:
+                node = pending.pop(nid)
+                ins = {k: ([remap[v[0]], v[1]] if _is_link(v) else v) for k, v in node["inputs"].items()}
+                sig = json.dumps([node["class_type"], ins], sort_keys=True, default=str)
+                if node["class_type"] not in _NO_SHARE and sig in by_sig:
+                    remap[nid] = by_sig[sig]
+                    continue
+                new = f"b{i}_{nid}"
+                merged[new] = {**node, "inputs": ins}
+                remap[nid] = by_sig[sig] = new
+        remaps.append(remap)
+    return merged, remaps
+
+
+def run_or_defer(defer: list | None, graph: dict, outputs: dict, **kw):
+    """comfy.run, or queue the call on `defer` for run_many."""
+    if defer is None:
+        return run(graph, outputs, **kw)
+    defer.append(dict(graph=graph, outputs=outputs, **kw))
+
+
+def run_many(calls: list[dict], chunk: int = 3) -> None:
+    """Run deferred comfy.run calls, `chunk` per ComfyUI prompt (calls to the same worker only)."""
+    by_url: dict = {}
+    for c in calls:
+        by_url.setdefault(c.get("url"), []).append(c)
+    for url, group in by_url.items():
+        for s in range(0, len(group), max(1, chunk)):
+            part = group[s:s + chunk]
+            if len(part) == 1:
+                run(**part[0])
+                continue
+            g, remaps = merge_graphs([c["graph"] for c in part])
+            outputs = {remaps[j][n]: d for j, c in enumerate(part) for n, d in c["outputs"].items()}
+            inputs = {(remaps[j][n], k): p for j, c in enumerate(part) for (n, k), p in (c.get("inputs") or {}).items()}
+            label = " + ".join(c.get("label", "") for c in part)
+            run(g, outputs, url=url, label=label, inputs=inputs, timeout=max(c.get("timeout", 7200) for c in part))
+            first = Path(next(iter(outputs.values())))
+            rec = first.with_name(first.stem + ".graph.json") if first.suffix else first / f"{label}.graph.json"
+            for c in part[1:]:
+                d = Path(next(iter(c["outputs"].values())))
+                if d.suffix and rec.exists():
+                    shutil.copy(rec, d.with_name(d.stem + ".graph.json"))
+
+
+def chain(up: dict, up_out: str, down: dict, down_in: str) -> dict:
+    """Feed node `up_out` (output 0) of graph `up` into graph `down` in place of its loader `down_in`.
+    Node ids get a u_ / d_ prefix."""
+    def pre(node, p, swap=None):
+        ins = {k: ((swap if swap and v[0] == down_in else [p + v[0], v[1]]) if _is_link(v) else v)
+               for k, v in node["inputs"].items()}
+        return {**node, "inputs": ins}
+    g = {"u_" + k: pre(v, "u_") for k, v in up.items()}
+    g.update({"d_" + k: pre(v, "d_", ["u_" + up_out, 0]) for k, v in down.items() if k != down_in})
+    return g

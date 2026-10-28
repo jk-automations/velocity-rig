@@ -5,7 +5,7 @@ then the shots are stitched into a reel. Every render goes through the Comfy SDK
     python -m velocityrig --world "mountain pass" --shots 6 --seed 7 --out runs/velocity-rig/race1
         [--car "a gloss teal wedge coupe #27..."] [--rival "a gloss crimson widebody fastback #14..."]
         [--photo my_car.png] [--rival-photo rival.png] [--pilot-photo me.png] [--rig "auto (race sequence)"]
-        [--light "golden hour"] [--intensity 0.85] [--aspect "16:9 landscape"] [--plates-only] [--dry-run]
+        [--light "golden hour"] [--intensity 0.85] [--aspect "16:9 landscape"] [--plates-only] [--no-one-prompt] [--dry-run]
 """
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ from velocityrig.graphs.video import ltx_i2v
 ROOT = Path(__file__).resolve().parents[1]
 PACK = ROOT / "custom_nodes" / "comfyui-velocity-rig"
 TRIM_FRAMES = 6
+CLIP_CHUNK = 3  # LTX clips per ComfyUI prompt when --no-one-prompt
 
 
 def _load(name):
@@ -77,12 +78,13 @@ def apply_fx_to_video(raw_mp4: Path, dest_mp4: Path, fx_params: dict, fps: float
     return dest_mp4
 
 
-def make_plate(shot, i, out: Path, ref: Path, worker: str | None, pilot_ref: Path | None = None) -> Path:
+def make_plate(shot, i, out: Path, ref: Path, worker: str | None, pilot_ref: Path | None = None, defer: list | None = None) -> Path:
     """Qwen Image Edit renders the plate from the hero ref only: given two vehicle refs it fuses them into one, so the rival
-    comes from the text."""
+    comes from the text. With `defer` the graph is queued for comfy.run_many instead of run (and nothing is logged)."""
     dest = out / "plates" / f"{i + 1:02d}.png"
     if dest.exists():
-        log(f"plate {i + 1:02d} {shot['rig']} / {shot['action']} cached", True)
+        if defer is None:
+            log(f"plate {i + 1:02d} {shot['rig']} / {shot['action']} ready", True)
         return dest
     t = time.time()
     ref_imgs = [ref] + ([pilot_ref] if pilot_ref and pilot_ref.exists() else [])
@@ -93,21 +95,26 @@ def make_plate(shot, i, out: Path, ref: Path, worker: str | None, pilot_ref: Pat
     prompt = shot["plate_prompt"] + " " + lead + "Any other vehicle in the scene is a different design, as described."
     g = qwen_edit(prompt, len(ref_imgs), seed=shot["seed"], width=shot["plate_width"], height=shot["plate_height"],
                   negative=shot["plate_negative"], prefix="velocity_rig/plate")
-    comfy.run(g, {"save": dest}, url=worker, label=f"plate {i + 1}", inputs={(f"img{n}", "image"): r for n, r in enumerate(ref_imgs, 1)})
-    log(f"plate {i + 1:02d} {shot['rig']} / {shot['action']} (Qwen Image Edit) in {time.time() - t:.0f}s", True)
+    comfy.run_or_defer(defer, g, {"save": dest}, url=worker, label=f"plate {i + 1}", inputs={(f"img{n}", "image"): r for n, r in enumerate(ref_imgs, 1)})
+    if defer is None:
+        log(f"plate {i + 1:02d} {shot['rig']} / {shot['action']} (Qwen Image Edit) in {time.time() - t:.0f}s", True)
     return dest
 
 
-def make_clip(shot, i, plate: Path, out: Path, worker: str | None) -> Path:
+def make_clip(shot, i, plate: Path, out: Path, worker: str | None, defer: list | None = None) -> Path:
+    """LTX-2.5 + Velocity FX. With `defer` only the LTX graph is queued; call again after run_many to apply the FX."""
     dest, raw = out / "clips" / f"{i + 1:02d}_shot.mp4", out / "clips" / f"{i + 1:02d}_raw.mp4"
     if dest.exists():
-        log(f"clip  {i + 1:02d} {shot['rig']} / {shot['action']} cached", True)
+        if defer is None:
+            log(f"clip  {i + 1:02d} {shot['rig']} / {shot['action']} cached", True)
         return dest
     t = time.time()
     if not raw.exists():
         g = ltx_i2v(shot["motion_prompt"], width=shot["width"], height=shot["height"], seconds=int(shot["seconds"]), fps=int(shot["fps"]),
                     seed=shot["seed"], negative=shot["video_negative"], prefix="velocity_rig/raw", audio=True)
-        comfy.run(g, {"save": raw}, url=worker, label=f"shot {i + 1} {shot['rig']}", inputs={("img1", "image"): plate})
+        comfy.run_or_defer(defer, g, {"save": raw}, url=worker, label=f"shot {i + 1} {shot['rig']}", inputs={("img1", "image"): plate})
+        if defer is not None:
+            return dest
     apply_fx_to_video(raw, dest, shot["fx"], fps=shot["fps"], seed=shot["seed"])
     log(f"clip  {i + 1:02d} {shot['rig']} / {shot['action']} (LTX-2.5 + Velocity FX) in {time.time() - t:.0f}s", True)
     return dest
@@ -158,6 +165,8 @@ def main(argv=None):
     ap.add_argument("--aspect", default="16:9 landscape")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--plates-only", action="store_true")
+    ap.add_argument("--one-prompt", action=argparse.BooleanOptionalAction, default=True,
+                    help="chain each plate into its LTX graph and merge the whole reel into one ComfyUI prompt (one GPU-queue turn); --no-one-prompt batches plates and clips separately")
     ap.add_argument("--comfy", default=None, help="Comfy API v2 base URL (default: $COMFY_BASE_URL or http://127.0.0.1:8195)")
     ap.add_argument("--dry-run", action="store_true", help="build and save the real graphs, write placeholder outputs, contact no server")
     a = ap.parse_args(argv)
@@ -204,14 +213,44 @@ def main(argv=None):
     with ThreadPoolExecutor(len(wanted)) as pool:
         refs = [f.result() for f in [pool.submit(make_ref, n, *w) for n, w in enumerate(wanted)]]
 
-    plates = [make_plate(s, i, out, refs[0], a.comfy, pilot_ref) for i, s in enumerate(shots)]
+    plate_of = lambda i: out / "plates" / f"{i + 1:02d}.png"
+    if a.one_prompt and not a.plates_only:
+        jobs = []
+        for i, sh in enumerate(shots):
+            pj, cj = [], []
+            make_plate(sh, i, out, refs[0], a.comfy, pilot_ref, defer=pj)
+            make_clip(sh, i, plate_of(i), out, a.comfy, defer=cj)
+            if pj and cj:  # plate -> LTX inside one graph
+                jobs.append(dict(graph=comfy.chain(pj[0]["graph"], "dec", cj[0]["graph"], "img1"), url=a.comfy, label=f"shot {i + 1} plate+clip",
+                                 outputs={"u_save": pj[0]["outputs"]["save"], "d_save": cj[0]["outputs"]["save"]},
+                                 inputs={("u_" + n, k): v for (n, k), v in pj[0]["inputs"].items()}))
+            else:
+                jobs += pj + cj
+        if jobs:
+            log(f"rendering {len(shots)} shots (plate + LTX) in one ComfyUI prompt")
+            comfy.run_many(jobs, chunk=len(jobs))
+    else:
+        batch: list = []
+        for i, sh in enumerate(shots):
+            make_plate(sh, i, out, refs[0], a.comfy, pilot_ref, defer=batch)
+        if batch:
+            log(f"rendering {len(batch)} plates in one ComfyUI prompt")
+            comfy.run_many(batch, chunk=len(batch))
+    plates = [make_plate(sh, i, out, refs[0], a.comfy, pilot_ref) for i, sh in enumerate(shots)]
     sheet = out / "plates" / "contact_sheet.jpg"
     build_contact_sheet(plates, shots, refs, sheet)
     if a.plates_only:
         log(f"plates_only complete: {sheet}")
         return
 
-    clips = [make_clip(s, i, p, out, a.comfy) for i, (s, p) in enumerate(zip(shots, plates))]
+    if not a.one_prompt:
+        batch = []
+        for i, (sh, p) in enumerate(zip(shots, plates)):
+            make_clip(sh, i, p, out, a.comfy, defer=batch)
+        if batch:
+            log(f"rendering {len(batch)} LTX clips, {CLIP_CHUNK} per ComfyUI prompt")
+            comfy.run_many(batch, chunk=CLIP_CHUNK)
+    clips = [make_clip(sh, i, p, out, a.comfy) for i, (sh, p) in enumerate(zip(shots, plates))]
     reel = out / "reel.mp4"
     reel_lib.assemble(clips, reel, shots[0]["fps"], TRIM_FRAMES)
     log(f"reel: {reel} ({len(clips)} shots)", True)
