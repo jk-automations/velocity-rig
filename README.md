@@ -2,7 +2,11 @@
 
 **Camera-rig simulation for high-speed vehicle shots: pick a subject, a world and one of 45 mounts and lenses, and get a hard-cut reel with engine sound, on open weights end to end.**
 
-<!-- RENDER: jet-canyon-open/reel.mp4 (hero GIF, open-weights reel, replaces this line) -->
+![Velocity Rig: an open-weights jet chase through a canyon, hard cuts between camera rigs](docs/hero.gif)
+
+*First 7 s of a 6-shot jet canyon reel, rendered entirely on open weights in one ComfyUI prompt. The plates below are its first frames: two Z-Image vehicle refs (top), then one Qwen Image Edit plate per camera rig.*
+
+![Velocity Rig jet plates](docs/jet_plates.jpg)
 
 Open weights only: Z-Image Turbo draws the vehicles, Qwen Image Edit 2511 keeps every plate on the same design, LTX-2.5 22B distilled animates it with synchronized audio.
 There is no closed-model backend anywhere in this repository (no hosted image API, no partner node), and no shipped workflow references one.
