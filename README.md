@@ -124,7 +124,13 @@ API JSON to open it in ComfyUI), and a gallery of every run under `runs/`, inclu
 Every submit is saved as `<name>.graph.json` next to its output (the exact API graph, the ComfyUI job id and the uploaded inputs). Open one in ComfyUI or in the app's graph viewer.
 
 <!-- RENDER: car-mountain-open/reel.mp4 -->
-<!-- RENDER: pilot-pov-open/reel.mp4 -->
+### Put yourself in the cockpit
+
+![Pilot POV reel: the pilot photo becomes the fighter pilot in every cockpit shot](docs/pilot_pov.gif)
+
+`--pilot-photo me.png --subject-type jet_pilot_pov`: one selfie goes into every Qwen Image Edit plate as an extra reference, so the pilot keeps that face (shown with the consent of the person in the photo). Plates below. LTX can still drift a face during a fast move: here the crash-zoom shot (03) turned into a different person, so it was left out with `--drop 3`.
+
+![Pilot POV plates](docs/pilot_plates.jpg)
 
 ## Hardware
 
