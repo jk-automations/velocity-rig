@@ -134,10 +134,10 @@ ARCHETYPES = {
     "motorcycle": dict(
         label="Superbikes & GP Prototypes",
         default_subject="an original aerodynamic track superbike painted gloss electric cyan and carbon black with sharp aero winglets, "
-                        "gold inverted front suspension forks, titanium exhaust canister and a white racing number 46 on the front fairing, "
+                        "gold inverted front suspension forks, titanium exhaust canister and a white racing number 64 on the front fairing, "
                         "piloted by a pro racer in a matching cyan leather racing suit, knee pucks and aerodynamic racing helmet with dark visor",
         default_rival="an original factory prototype superbike painted gloss race orange and pearl white with dual carbon aero winglets, "
-                      "bronze lightweight forged wheels, titanium header pipes and bold racing number 93 on the fairing, "
+                      "bronze lightweight forged wheels, titanium header pipes and bold racing number 17 on the fairing, "
                       "piloted by a competing racer in an orange-and-white leather racing suit and matching helmet",
         no_brand="Original fictional racing superbike designs with no real-world manufacturer badges, no brand logos, no sponsor wordmarks, and no readable license plates.",
         plate_neg="blurry, lowres, watermark, logo, brand emblem, text, letters, extra wheels, four wheels, car, bicycle, melted bodywork, missing limbs, deformed hands, cartoon, CGI render, video game HUD, UI overlay, split screen",
@@ -297,8 +297,8 @@ WORLDS = {
         scene="a professional motorsport circuit with red and white kerbs, run-off areas, tire walls and grandstands",
         light="clear late-afternoon golden sun",
         sound="high-revving race engines, rapid gear shifts, tire squeal"),
-    "isle of man": dict(
-        scene="a legendary narrow coastal mountain road course through stone-walled villages, crests, and mountain roads with the Irish Sea glistening below",
+    "island road course": dict(
+        scene="a narrow coastal mountain road course through stone-walled villages, crests, and mountain roads with the sea glistening below",
         light="crisp morning golden sunlight, tree shadows flickering across the tarmac",
         sound="screaming high-revving 4-cylinder superbike engine echoing off stone cottages and rock faces"),
     "supersonic canyon": dict(
