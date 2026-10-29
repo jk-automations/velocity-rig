@@ -246,7 +246,7 @@ async function route() {
   window.scrollTo(0, 0);
 }
 async function comfyStat() {
-  try { const c = await api.get("/api/comfy"); const t = el("span", {}, el("i", { class: "dot " + (c.up ? "on" : "off") }), c.up ? `Comfy API v2 proxy ${c.url}` : `Comfy API v2 proxy not reachable (${c.url})`);
+  try { const c = await api.get("/api/comfy"); const t = CFG.replay ? el("span", {}, el("i", { class: "dot on" }), "Replay mode: finished run, no ComfyUI contact") : el("span", {}, el("i", { class: "dot " + (c.up ? "on" : "off") }), c.up ? `Comfy API v2 proxy ${c.url}` : `Comfy API v2 proxy not reachable (${c.url})`);
     $("#cstat") && $("#cstat").replaceChildren(t); $("#foot").replaceChildren(t.cloneNode(true), el("div", { text: CFG.replay ? "replaying a finished render" : CFG.dry ? "dry-run mode" : "live mode" })); } catch (e) { /* ignore */ }
 }
 (async () => {
