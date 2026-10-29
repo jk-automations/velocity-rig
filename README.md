@@ -129,6 +129,14 @@ Every submit is saved as `<name>.graph.json` next to its output (the exact API g
 
 *Default car archetype (`--subject-type car --world "mountain pass" --seed 27`), 5 shots. Both vehicles are original designs. The underbody-cam shot was left out (`--drop 6`) because the distant rival lost its design.*
 
+### Superbike: island road course
+
+![Superbike reel: an original blue #64 superbike chased by an orange and white #17 prototype along a coastal road](docs/superbike_island.gif)
+
+*`--subject-type motorcycle --world "island road course" --seed 46`, 5 shots. Both bikes, their numbers and the road are original. The FPV drone shot (05) was left out with `--drop 5` because the rival's 17 bled onto the hero's nose number.*
+
+![Superbike plates](docs/superbike_plates.jpg)
+
 ### Put yourself in the cockpit
 
 ![Pilot POV reel: the pilot photo becomes the fighter pilot in every cockpit shot](docs/pilot_pov.gif)
