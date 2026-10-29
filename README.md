@@ -123,7 +123,12 @@ API JSON to open it in ComfyUI), and a gallery of every run under `runs/`, inclu
 
 Every submit is saved as `<name>.graph.json` next to its output (the exact API graph, the ComfyUI job id and the uploaded inputs). Open one in ComfyUI or in the app's graph viewer.
 
-<!-- RENDER: car-mountain-open/reel.mp4 -->
+### Car: mountain pass
+
+![Car reel: an original rally-raid buggy chased by an armored off-road truck over a mountain pass](docs/car_mountain.gif)
+
+*Default car archetype (`--subject-type car --world "mountain pass" --seed 27`), 5 shots. Both vehicles are original designs. The underbody-cam shot was left out (`--drop 6`) because the distant rival lost its design.*
+
 ### Put yourself in the cockpit
 
 ![Pilot POV reel: the pilot photo becomes the fighter pilot in every cockpit shot](docs/pilot_pov.gif)
