@@ -165,6 +165,7 @@ def main(argv=None):
     ap.add_argument("--aspect", default="16:9 landscape")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--plates-only", action="store_true")
+    ap.add_argument("--drop", default="", help="comma list of shot numbers to leave out of the reel, e.g. 3")
     ap.add_argument("--one-prompt", action=argparse.BooleanOptionalAction, default=True,
                     help="chain each plate into its LTX graph and merge the whole reel into one ComfyUI prompt (one GPU-queue turn); --no-one-prompt batches plates and clips separately")
     ap.add_argument("--comfy", default=None, help="Comfy API v2 base URL (default: $COMFY_BASE_URL or http://127.0.0.1:8195)")
@@ -251,6 +252,8 @@ def main(argv=None):
             log(f"rendering {len(batch)} LTX clips, {CLIP_CHUNK} per ComfyUI prompt")
             comfy.run_many(batch, chunk=CLIP_CHUNK)
     clips = [make_clip(sh, i, p, out, a.comfy) for i, (sh, p) in enumerate(zip(shots, plates))]
+    dropped = {int(x) for x in a.drop.split(",") if x.strip()}
+    clips = [c for i, c in enumerate(clips, 1) if i not in dropped]
     reel = out / "reel.mp4"
     reel_lib.assemble(clips, reel, shots[0]["fps"], TRIM_FRAMES)
     log(f"reel: {reel} ({len(clips)} shots)", True)
