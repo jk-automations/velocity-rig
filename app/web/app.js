@@ -167,7 +167,8 @@ async function studio() {
     el("div", { class: "row" }, go, CFG.plan ? el("button", { class: "btn", type: "button", text: "Preview shot list", onclick: async () => {
       try { const r = await api.post0("/api/plan", formParams()); plan.replaceChildren(el("div", { class: "panel" }, el("div", { class: "panel-head" }, el("h2", { text: "Shot list (from the pack's rig library, no GPU)" })), ...r.map(s => el("div", { class: "shot" }, el("b", { text: s.label }), el("div", { class: "p", text: s.motion_prompt })))));
       } catch (e) { toast(e.message, true); } } }) : null,
-      CFG.dry ? el("span", { class: "chip", text: "dry-run mode: placeholder outputs, no ComfyUI" }) : null));
+      CFG.dry ? el("span", { class: "chip", text: "dry-run mode: placeholder outputs, no ComfyUI" }) : null,
+      CFG.replay ? el("span", { class: "chip", text: "replaying a finished render (" + CFG.replay + "): cached, no GPU" }) : null));
   main.replaceChildren(el("h1", { text: CFG.name }), el("p", { class: "lead", text: CFG.tagline }), el("div", { class: "cols" }, el("div", {}, form, plan), el("div", {}, stackPanel(), el("div", { class: "panel" }, el("div", { class: "panel-head" }, el("h2", { text: "Recent runs" }), el("a", { class: "btn sm ghost", href: "#/gallery", text: "All" })), recent))));
   refresh();
   go.onclick = async () => {
@@ -216,7 +217,7 @@ async function runPage(run) {
   main.replaceChildren(head, live, results, gp.root, el("div", { class: "panel" }, el("div", { class: "panel-head" }, el("h2", { text: "Runner log" })), logBox));
   function paint(j) {
     const act = j.status === "running" || j.status === "queued";
-    head.replaceChildren(...[el("div", {}, el("h1", { text: j.params && j.params.title || run.split("/").pop() }), el("span", { class: "chip " + (j.status === "done" ? "ok" : j.status === "failed" ? "bad" : "run"), text: j.status + (j.queue_position ? ` (queue ${j.queue_position})` : "") })),
+    head.replaceChildren(...[el("div", {}, el("h1", { text: j.params && j.params.title || run.split("/").pop() }), el("span", { class: "chip " + (j.status === "done" ? "ok" : j.status === "failed" ? "bad" : "run"), text: j.status + (j.queue_position ? ` (queue ${j.queue_position})` : "") }), CFG.replay ? el("span", { class: "chip", style: { marginLeft: "8px" }, text: "replaying a finished render, nothing submitted to ComfyUI" }) : null),
       act && j.status !== "done" ? el("button", { class: "btn", type: "button", text: "Cancel", onclick: () => api.post("/api/cancel?run=" + encodeURIComponent(run)) }) : null].filter(Boolean));
     const lv = j.live;
     live.replaceChildren(...(act || j.error ? [el("div", { class: "live" }, el("div", { class: "t", text: j.stage || "starting" }),
@@ -246,7 +247,7 @@ async function route() {
 }
 async function comfyStat() {
   try { const c = await api.get("/api/comfy"); const t = el("span", {}, el("i", { class: "dot " + (c.up ? "on" : "off") }), c.up ? `Comfy API v2 proxy ${c.url}` : `Comfy API v2 proxy not reachable (${c.url})`);
-    $("#cstat") && $("#cstat").replaceChildren(t); $("#foot").replaceChildren(t.cloneNode(true), el("div", { text: CFG.dry ? "dry-run mode" : "live mode" })); } catch (e) { /* ignore */ }
+    $("#cstat") && $("#cstat").replaceChildren(t); $("#foot").replaceChildren(t.cloneNode(true), el("div", { text: CFG.replay ? "replaying a finished render" : CFG.dry ? "dry-run mode" : "live mode" })); } catch (e) { /* ignore */ }
 }
 (async () => {
   CFG = await api.get("/api/config"); LIB = await api.get("/api/presets");

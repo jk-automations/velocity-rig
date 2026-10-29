@@ -137,6 +137,8 @@ def run(graph: dict, outputs: dict, *, url: str | None = None, timeout: float = 
     The submitted graph is saved beside the first output as <name>.graph.json (graph, ComfyUI job id, label) so every
     render can be reopened in ComfyUI and is shown in the app's graph viewer. Dropped jobs are resubmitted RETRIES times.
     """
+    if os.environ.get("RIG_REPLAY") == "1":  # replay mode: never submit; a missing cached file aborts the job
+        raise SystemExit(f"replay: {label or 'a render'} is not in the replayed run, refusing to submit anything to ComfyUI")
     first = Path(next(iter(outputs.values())))
     gfile = first.with_name(first.stem + ".graph.json") if first.suffix else first / f"{label or 'render'}.graph.json"
     gfile.parent.mkdir(parents=True, exist_ok=True)

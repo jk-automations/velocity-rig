@@ -94,6 +94,12 @@ One page: the controls (their choices are read from the pack's library), uploads
 (stage, ComfyUI node and sampler step), the **executed ComfyUI graph** of every submit read from the saved `*.graph.json` files (click a node for its inputs, download the
 API JSON to open it in ComfyUI), and a gallery of every run under `runs/`, including runs started from the command line. The stack panel names the models and nodes behind each stage.
 
+**Replay mode** (`--replay-from <finished run dir>`): every Render copies that finished run (refs, plates, clips, `shots.json`, `*.graph.json`) into the new job and runs the real runner on the cache, with the same arguments. It finishes in seconds, shows the real plates, the real executed graphs and the real reel, and submits nothing: `RIG_REPLAY=1` makes the Comfy layer refuse to submit, so a missing cached file aborts the job instead of rendering. The app shows a "replaying a finished render" badge. Used for demo recordings.
+
+```bash
+.venv/bin/python app/server.py --port 8811 --replay-from runs/velocity-rig/jet-canyon-open
+```
+
 ## Command line
 
 ```bash

@@ -36,6 +36,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 RUNS = Path(os.environ.get("RIG_RUNS") or ROOT / "runs").resolve()
 RUNS.mkdir(parents=True, exist_ok=True)
 DRY = os.environ.get("RIG_DRY") == "1"
+REPLAY: Path | None = None  # --replay-from <finished run dir>: copy it into each new job and run the REAL runner on the cache
 MEDIA = {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".gif"}
 UP_OK = {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 LOCK = threading.RLock()
@@ -92,6 +93,12 @@ def run_job(job: dict):
     args = (C.build_args if hasattr(C, "build_args") else default_args)(job["params"], job["uploads"])
     cmd = [sys.executable, "-u", "-m", C.MODULE, *args, "--out", str(out)] + (["--dry-run"] if DRY else [])
     env = dict(os.environ, PYTHONUNBUFFERED="1", RIG_EVENTS="1", **({"RIG_DRY": "1"} if DRY else {}))
+    if REPLAY:
+        # Replay: seed the output dir with a finished render. The runner reuses every cached file; RIG_REPLAY makes the Comfy layer
+        # refuse to submit anything, so a missing file aborts the job instead of touching a GPU.
+        shutil.copytree(REPLAY, out, dirs_exist_ok=True, ignore=shutil.ignore_patterns("fx-full", "*.log", "job.json", "__pycache__"))
+        env["RIG_REPLAY"] = "1"
+        job["log"].append(f"replaying a finished render from {REPLAY.name}: cached files reused, nothing is submitted to ComfyUI")
     job.update(status="running", started=time.time(), cmd=" ".join(cmd))
     touch(job, True)
     p = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True)
@@ -211,7 +218,7 @@ def snapshot(job: dict | None, d: Path) -> dict:
 
 @app.get("/api/config")
 def config():
-    return {**C.CONFIG, "dry": DRY}
+    return {**C.CONFIG, "dry": DRY, "replay": REPLAY.name if REPLAY else None}
 
 
 @app.get("/api/presets")
@@ -232,6 +239,8 @@ _comfy: dict = {"t": 0}
 
 @app.get("/api/comfy")
 def comfy_status():
+    if REPLAY:
+        return {"up": False, "url": "none (replay)", "detail": "replay mode never contacts ComfyUI"}
     if time.time() - _comfy["t"] > 5:
         url = (os.environ.get("COMFY_BASE_URL") or "http://127.0.0.1:8195").rstrip("/")
         try:
@@ -376,7 +385,12 @@ if __name__ == "__main__":
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=C.CONFIG.get("port", 8811))
     ap.add_argument("--dry-run", action="store_true", help="placeholder outputs, no ComfyUI")
+    ap.add_argument("--replay-from", help="a finished run dir: every Render copies it and re-runs the real runner on the cache (no GPU)")
     a = ap.parse_args()
+    if a.replay_from:
+        REPLAY = Path(a.replay_from).expanduser().resolve()
+        if not (REPLAY / "shots.json").exists():
+            sys.exit(f"--replay-from: {REPLAY} has no shots.json")
     if a.dry_run:
         os.environ["RIG_DRY"] = "1"
         DRY = True
