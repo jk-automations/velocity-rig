@@ -95,10 +95,10 @@ ARCHETYPES = {
     "car": dict(
         label="Supercars & Race Cars",
         default_subject="an original tube-frame rally-raid race buggy with an exposed bright orange roll cage, long-travel "
-                        "suspension, huge knobby off-road tires, a short gloss teal fiberglass nose and side pods, twin roof-mounted "
+                        "suspension, huge knobby off-road tires on silver beadlock wheels, a short gloss teal fiberglass nose and side pods, twin roof-mounted "
                         "LED light bars and a white racing number 27 in a roundel on the side pod",
-        default_rival="an original six-wheeled armored off-road racing truck with a flat-faced crimson red cab, black steel "
-                      "bash plates, a tall snorkel, a roof rack of round spotlights, gold beadlock wheels and a white racing number 14",
+        default_rival="an original armored off-road racing truck with a flat-faced crimson red cab, black steel "
+                      "bash plates, a tall snorkel, a roof rack of round spotlights, matte black wheels and a white racing number 14",
         no_brand="Original fictional race car designs with no real-world brand badges, no manufacturer emblems, no logos, "
                  "no sponsor wordmarks and no readable license plates.",
         plate_neg="blurry, lowres, watermark, logo, brand emblem, text, letters, license plate text, deformed car, extra wheels, "
