@@ -94,11 +94,11 @@ def build_negative_prompt(base_neg: str, style_neg: str, style: str) -> str:
 ARCHETYPES = {
     "car": dict(
         label="Supercars & Race Cars",
-        default_subject="an original angular wedge-shaped sports coupe with sharp creased panels, painted gloss teal with a "
-                        "matte black roof and hood stripe, a full-width thin LED light bar across the nose, wide fender flares, "
-                        "bronze six-spoke wheels and a white racing number 27 in a roundel on the doors",
-        default_rival="an original low-slung widebody fastback race coupe painted gloss crimson red with matte carbon-fiber "
-                      "front splitter and rear wing, gold mesh wheels, aggressive hood vents and a white racing number 14 on the doors",
+        default_subject="an original tube-frame rally-raid race buggy with an exposed bright orange roll cage, long-travel "
+                        "suspension, huge knobby off-road tires, a short gloss teal fiberglass nose and side pods, twin roof-mounted "
+                        "LED light bars and a white racing number 27 in a roundel on the side pod",
+        default_rival="an original six-wheeled armored off-road racing truck with a flat-faced crimson red cab, black steel "
+                      "bash plates, a tall snorkel, a roof rack of round spotlights, gold beadlock wheels and a white racing number 14",
         no_brand="Original fictional race car designs with no real-world brand badges, no manufacturer emblems, no logos, "
                  "no sponsor wordmarks and no readable license plates.",
         plate_neg="blurry, lowres, watermark, logo, brand emblem, text, letters, license plate text, deformed car, extra wheels, "
