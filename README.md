@@ -135,11 +135,13 @@ Every submit is saved as `<name>.graph.json` next to its output (the exact API g
 
 *Default car archetype (`--subject-type car --world "mountain pass" --seed 27`), 5 shots. Both vehicles are original designs. The underbody-cam shot was left out (`--drop 6`) because the distant rival lost its design.*
 
-### Superbike: island road course
+### Car: snow mountain rally
 
 ![Snow rally reel: an original white and orange #8 rally hatchback chased by a green #22 on a snowy mountain road at sunrise](docs/rally_snow.gif)
 
 *Same runner, a different car, world and light: `--world "snow mountain" --light sunrise --rig "auto (cycle by shot)" --car "a boxy white and orange rally hatchback #8 ..." --rival "a dark green rally hatchback #22 ..."`. 5 of 6 shots kept (shot 6 dropped: the rival turned red).*
+
+### Superbike: island road course
 
 ![Superbike reel: an original blue #64 superbike chased by an orange and white #17 prototype along a coastal road](docs/superbike_island.gif)
 
