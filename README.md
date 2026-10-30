@@ -21,6 +21,12 @@ Higgsfield's draw is cinematography presets: FPV and drone moves, vehicle-mounte
 - **Mount physics as post FX** (`VelocityFX`): rig shake, radial speed blur that keeps the vehicle sharp, zoom punch, chroma fringing, speed ramp. The frame count never changes, so the LTX audio stays in sync.
 - **Identity lock**: Z-Image draws a hero and a rival once, or you upload your own vehicle and a pilot selfie; Qwen Image Edit then renders every plate from those refs.
 
+## What you can pick
+
+- **6 vehicle types**: car, GP superbike, fighter jet, jet pilot POV (your selfie in the cockpit), downhill MTB, speedboat. The vehicle itself is free text or your photo.
+- **45 camera rigs** (wheel, door, bumper, roof, exhaust, underbody, cockpit, mirror, FPV dive and chase, helicopter, roadside whip pan, crash zoom, and bike, jet and boat mounts), plus **Velocity Rig Builder**: 19 mount anchors x 5 pitches x 7 lenses x 4 stabilizers (about 2,600 custom rigs).
+- **16 worlds** or your own text, **9 lights**, **35 actions** (drift, overtake, near miss, jump, barrel roll, wave skip...), **6 visual styles**, 16:9 / 9:16 / 2.35:1.
+
 ## Nodes
 
 | Node | What it does |
@@ -130,6 +136,10 @@ Every submit is saved as `<name>.graph.json` next to its output (the exact API g
 *Default car archetype (`--subject-type car --world "mountain pass" --seed 27`), 5 shots. Both vehicles are original designs. The underbody-cam shot was left out (`--drop 6`) because the distant rival lost its design.*
 
 ### Superbike: island road course
+
+![Snow rally reel: an original white and orange #8 rally hatchback chased by a green #22 on a snowy mountain road at sunrise](docs/rally_snow.gif)
+
+*Same runner, a different car, world and light: `--world "snow mountain" --light sunrise --rig "auto (cycle by shot)" --car "a boxy white and orange rally hatchback #8 ..." --rival "a dark green rally hatchback #22 ..."`. 5 of 6 shots kept (shot 6 dropped: the rival turned red).*
 
 ![Superbike reel: an original blue #64 superbike chased by an orange and white #17 prototype along a coastal road](docs/superbike_island.gif)
 
