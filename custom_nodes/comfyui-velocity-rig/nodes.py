@@ -1,13 +1,17 @@
 """Velocity Rig nodes for ComfyUI.
 
 Velocity Rig        car + rival + world + camera rig -> first-frame prompt, LTX motion prompt, sizes, frames, seed, FX
+Velocity Plate      off-GPU first-frame generator via Codex / Nano Banana (with optional hero & rival reference images)
 Velocity Rig List   the whole rig/world/action library as text, to browse inside ComfyUI
 Velocity FX         shake, speed blur, crash zoom, chroma, speed ramp on the decoded frames
 Velocity Reel       stitch the last N saved shots into one hard-cut reel with their LTX audio
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import tempfile
+from pathlib import Path
 
 from . import rigs
 
@@ -70,6 +74,56 @@ class VelocityRig:
                 float(s["fps"]), s["seed"], json.dumps(s["fx"]), s["label"])
 
 
+class VelocityPlate:
+    CATEGORY = CAT
+    FUNCTION = "run"
+    DESCRIPTION = ("Optional closed-model plate (Codex or Nano Banana). The bundled workflows use open-weights Z-Image / "
+                   "Qwen Image Edit instead. Generates the camera-rig first frame off-GPU, optionally locking "
+                   "visual identity to hero_ref and rival_ref images. Leaves 100% of Mac Studio GPU free for LTX-2.5.")
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "plate_prompt": ("STRING", {"multiline": True, "forceInput": True}),
+                "width": ("INT", {"default": 1024, "min": 256, "max": 2048, "step": 64}),
+                "height": ("INT", {"default": 576, "min": 256, "max": 2048, "step": 64}),
+                "backend": (["codex", "nano_banana"], {"default": "codex"}),
+                "seed": ("INT", {"default": 7, "min": 0, "max": 2**31 - 1}),
+            },
+            "optional": {
+                "hero_ref": ("IMAGE", {"tooltip": "Optional hero car reference image to lock car identity."}),
+                "rival_ref": ("IMAGE", {"tooltip": "Optional rival car reference image to lock rival identity."}),
+            },
+        }
+
+    def run(self, plate_prompt, width, height, backend="codex", seed=7, hero_ref=None, rival_ref=None):
+        import numpy as np
+        import torch
+        from PIL import Image
+        from . import plate_gen
+
+        cache_dir = Path(tempfile.gettempdir()) / "velocity_rig_plates"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        refs = []
+        for tag, tensor in (("hero", hero_ref), ("rival", rival_ref)):
+            if tensor is not None:
+                arr = (tensor[0].detach().cpu().numpy().clip(0, 1) * 255).astype(np.uint8)
+                ref_path = cache_dir / f"ref_{tag}_{hashlib.sha1(arr.tobytes()).hexdigest()[:10]}.png"
+                if not ref_path.exists():
+                    Image.fromarray(arr).save(ref_path)
+                refs.append(ref_path)
+
+        key = hashlib.sha1(f"{plate_prompt}|{width}x{height}|{backend}|{seed}|{[r.name for r in refs]}".encode()).hexdigest()[:12]
+        dest = cache_dir / f"plate_{key}.png"
+        plate_gen.generate_plate(plate_prompt, dest, width=width, height=height, refs=refs, backend=backend)
+        with Image.open(dest) as im:
+            np_img = np.asarray(im.convert("RGB"), dtype=np.float32) / 255.0
+        return (torch.from_numpy(np_img).unsqueeze(0),)
+
+
 class VelocityRigList:
     CATEGORY = CAT
     FUNCTION = "run"
@@ -96,8 +150,8 @@ class VelocityRigList:
 class VelocityFX:
     CATEGORY = CAT
     FUNCTION = "run"
-    DESCRIPTION = ("Speed effects on decoded frames: rig shake, radial speed blur, crash zoom, chroma fringing and a "
-                   "speed ramp. Connect the rig's fx output for its defaults; any slider >= 0 overrides. Frame count "
+    DESCRIPTION = ("Speed effects on decoded frames: rig shake, mount vibration, road-bump jolts, chase-operator lag, "
+                   "radial speed blur, crash zoom, chroma fringing, sensor grain and an optional speed ramp. Connect the rig's fx output for its defaults; any slider >= 0 overrides. Frame count "
                    "is unchanged, so audio stays in sync.")
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("images",)
@@ -120,6 +174,10 @@ class VelocityFX:
                 "zoom_punch": ov("-1 = rig default"),
                 "chroma": ov("-1 = rig default"),
                 "ramp": ov("-1 = rig default"),
+                "vibration": ov("-1 = rig default (bolted mounts buzz)"),
+                "bumps": ov("-1 = rig default (road-bump jolts)"),
+                "lag": ov("-1 = rig default (chase operator lag)"),
+                "grain": ov("-1 = rig default (sensor grain + highlight roll-off)"),
             },
         }
 
@@ -133,6 +191,53 @@ class VelocityFX:
         if strength <= 0 or not any(amt.values()):
             return (images,)
         return (velocity_fx.apply(images, seed=seed, fps=fps or 24.0, **amt),)
+
+
+class VelocityMotionTrim:
+    CATEGORY = CAT
+    FUNCTION = "run"
+    DESCRIPTION = ("Cuts a shot down to its action. Image-to-video models hold the first frame, ease in and drift at the "
+                   "end; this measures per-frame motion (on `measure`, e.g. the raw LTX frames before FX shake) and drops "
+                   "head/tail frames below threshold x peak, keeps `pad` frames, then speeds the kept span up a little. "
+                   "Audio is cut to the same window.")
+    RETURN_TYPES = ("IMAGE", "AUDIO", "INT", "INT")
+    RETURN_NAMES = ("images", "audio", "start", "end")
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "threshold": ("FLOAT", {"default": 0.25, "min": 0.0, "max": 0.9, "step": 0.05,
+                                        "tooltip": "keep frames whose motion is at least this share of the clip's peak"}),
+                "pad": ("INT", {"default": 3, "min": 0, "max": 24}),
+                "speed": ("FLOAT", {"default": 1.2, "min": 1.0, "max": 1.5, "step": 0.05}),
+                "head": ("INT", {"default": 4, "min": 0, "max": 24, "tooltip": "always drop this many opening frames (the still plate)"}),
+            },
+            "optional": {
+                "audio": ("AUDIO",),
+                "measure": ("IMAGE", {"tooltip": "frames to measure motion on (default: images)"}),
+                "fps": ("FLOAT", {"forceInput": True}),
+            },
+        }
+
+    def run(self, images, threshold, pad, speed, head, audio=None, measure=None, fps=24.0):
+        import torch
+        from . import motion_trim
+        e = motion_trim.energy(measure if measure is not None else images)
+        s, t = motion_trim.window(e, threshold, pad, head=head)
+        x = images[s:t]
+        if speed > 1.0 and x.shape[0] > 2:
+            x = x[torch.arange(0, x.shape[0], speed).long().clamp(max=x.shape[0] - 1)]
+        if audio is not None:
+            wav, sr = audio["waveform"], audio["sample_rate"]
+            f = float(fps or 24.0)
+            seg = wav[..., int(s / f * sr):int(t / f * sr)]
+            n = max(1, int(seg.shape[-1] / speed))
+            seg = torch.nn.functional.interpolate(seg.reshape(-1, 1, seg.shape[-1]), size=n, mode="linear",
+                                                  align_corners=False).reshape(*seg.shape[:-1], n)
+            audio = {"waveform": seg, "sample_rate": sr}
+        return (x, audio, s, t)
 
 
 class VelocityReel:
@@ -236,14 +341,18 @@ class VelocityRigBuilder:
 NODE_CLASS_MAPPINGS = {
     "VelocityRig": VelocityRig,
     "VelocityRigBuilder": VelocityRigBuilder,
+    "VelocityPlate": VelocityPlate,
     "VelocityRigList": VelocityRigList,
     "VelocityFX": VelocityFX,
+    "VelocityMotionTrim": VelocityMotionTrim,
     "VelocityReel": VelocityReel,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "VelocityRig": "Velocity Rig (preset rig)",
     "VelocityRigBuilder": "Velocity Rig Builder (custom mount & lens)",
+    "VelocityPlate": "Velocity Plate (closed partner models, optional)",
     "VelocityRigList": "Velocity Rig Library",
     "VelocityFX": "Velocity FX (speed)",
+    "VelocityMotionTrim": "Velocity Motion Trim (cut to the action)",
     "VelocityReel": "Velocity Reel (stitch shots)",
 }

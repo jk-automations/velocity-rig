@@ -4,7 +4,11 @@ shake       rig vibration: smooth multi-frequency jitter + a little roll, with o
 speed_blur  radial zoom blur that leaves the center sharp and smears the edges, plus a touch of frame smear
 zoom_punch  crash zoom: snaps in over the first quarter of the shot, then holds
 chroma      lens chromatic fringing toward the edges
-ramp        speed ramp with the same frame count: fast in, slow at the middle of the shot, fast out
+ramp        speed ramp with the same frame count: fast in, slow at the middle of the shot, fast out (off by default: it reads floaty)
+vibration   high-frequency mount buzz (19-31 Hz) for cameras bolted to the vehicle
+bumps       sharp road-bump jolts: a vertical kick that decays over a few frames, at random intervals
+lag         chase-operator lag: a slight low-frequency drift and catch-up instead of a perfectly locked follow
+grain       sensor grain plus a light highlight roll-off, so frames stop looking plastic
 All amounts are 0..1. The frame count never changes, so LTX's audio stays in sync.
 """
 from __future__ import annotations
@@ -14,7 +18,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-KEYS = ("shake", "speed_blur", "zoom_punch", "chroma", "ramp")
+KEYS = ("shake", "speed_blur", "zoom_punch", "chroma", "ramp", "vibration", "bumps", "lag", "grain")
 
 
 def _warp_time(x: torch.Tensor, ramp: float) -> torch.Tensor:
@@ -39,8 +43,8 @@ def _sample(x: torch.Tensor, scale: torch.Tensor, tx: torch.Tensor, ty: torch.Te
     return F.grid_sample(x, grid, mode="bilinear", padding_mode="reflection", align_corners=False)
 
 
-def apply(images: torch.Tensor, shake=0.0, speed_blur=0.0, zoom_punch=0.0, chroma=0.0, ramp=0.0, seed=0,
-          fps=24.0, chunk=8) -> torch.Tensor:
+def apply(images: torch.Tensor, shake=0.0, speed_blur=0.0, zoom_punch=0.0, chroma=0.0, ramp=0.0, vibration=0.0,
+          bumps=0.0, lag=0.0, grain=0.0, seed=0, fps=24.0, chunk=8) -> torch.Tensor:
     if images.ndim != 4 or images.shape[0] == 0:
         return images
     T, H, W, _ = images.shape
@@ -61,6 +65,28 @@ def apply(images: torch.Tensor, shake=0.0, speed_blur=0.0, zoom_punch=0.0, chrom
             ty += amp * torch.sin(2 * math.pi * hz * 1.13 * t + ph[1])
             rot += amp * torch.sin(2 * math.pi * hz * 0.87 * t + ph[2])
         tx *= 0.012 * shake; ty *= 0.016 * shake; rot *= math.radians(0.5) * shake
+    if vibration > 0:  # bolted-on mount: fast, small, never smooth
+        for hz, amp in ((19.3, 1.0), (24.7, 0.7), (31.1, 0.5)):
+            ph = torch.rand(2, generator=g) * 2 * math.pi
+            tx += 0.0035 * vibration * amp * torch.sin(2 * math.pi * hz * t + ph[0])
+            ty += 0.0050 * vibration * amp * torch.sin(2 * math.pi * hz * 1.07 * t + ph[1])
+        ty += 0.0025 * vibration * (torch.rand(T, generator=g) - 0.5)
+    if bumps > 0:  # road bumps: kick, then a 3-4 frame decay
+        k = 0
+        while k < T:
+            k += int(fps * (0.25 + 0.55 * float(torch.rand(1, generator=g))))
+            if k >= T:
+                break
+            amp = 0.018 * bumps * (0.5 + float(torch.rand(1, generator=g)))
+            d = torch.arange(T - k, dtype=torch.float32)
+            ty[k:] += amp * torch.exp(-d / 1.6) * torch.cos(d * 1.3)
+            rot[k:] += math.radians(0.4) * bumps * float(torch.rand(1, generator=g) - 0.5) * torch.exp(-d / 2.0)
+    if lag > 0:  # chase operator: drifts a touch, then catches up
+        ph = torch.rand(2, generator=g) * 2 * math.pi
+        tx += 0.010 * lag * torch.sin(2 * math.pi * 0.9 * t + ph[0]) * (0.6 + 0.4 * torch.sin(2 * math.pi * 3.1 * t))
+        ty += 0.006 * lag * torch.sin(2 * math.pi * 1.4 * t + ph[1])
+    if vibration > 0 or bumps > 0 or lag > 0:
+        scale = scale * (1.0 + 0.03 * max(vibration, bumps, lag))  # overscan for the extra motion
 
     yy, xx = torch.meshgrid(torch.linspace(-1, 1, H), torch.linspace(-1, 1, W), indexing="ij")
     r = torch.sqrt((xx * W / H) ** 2 + yy ** 2) / math.sqrt((W / H) ** 2 + 1)
@@ -92,4 +118,9 @@ def apply(images: torch.Tensor, shake=0.0, speed_blur=0.0, zoom_punch=0.0, chrom
     if speed_blur > 0 and T > 1:  # light frame smear, reads as shutter drag at speed
         k = 0.22 * speed_blur
         y = torch.cat([y[:1], y[1:] * (1 - k) + y[:-1] * k], 0)
+    if grain > 0:  # highlight roll-off + per-frame luma grain
+        y = y.clamp(0, 1)
+        y = torch.where(y > 0.8, 0.8 + (y - 0.8) * (1.0 - 0.35 * min(grain, 1.0)), y)
+        n = torch.randn(y.shape[0], y.shape[1], y.shape[2], 1, generator=g) * (0.022 * min(grain, 1.5))
+        y = y + n * (0.35 + 0.65 * (1.0 - (y.mean(-1, keepdim=True) - 0.5).abs() * 2))
     return y.clamp(0, 1).to(images.dtype)

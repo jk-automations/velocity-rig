@@ -885,10 +885,38 @@
   }
  },
  "60": {
-  "class_type": "CreateVideo",
+  "class_type": "VelocityMotionTrim",
   "inputs": {
    "images": [
     "59",
+    0
+   ],
+   "threshold": 0.25,
+   "pad": 3,
+   "speed": 1.2,
+   "head": 4,
+   "audio": [
+    "55",
+    0
+   ],
+   "measure": [
+    "54",
+    0
+   ],
+   "fps": [
+    "2",
+    11
+   ]
+  },
+  "_meta": {
+   "title": "Motion Trim (cut to the action)"
+  }
+ },
+ "61": {
+  "class_type": "CreateVideo",
+  "inputs": {
+   "images": [
+    "60",
     0
    ],
    "fps": [
@@ -896,19 +924,19 @@
     11
    ],
    "audio": [
-    "55",
-    0
+    "60",
+    1
    ]
   },
   "_meta": {
    "title": "Shot with FX"
   }
  },
- "61": {
+ "62": {
   "class_type": "SaveVideo",
   "inputs": {
    "video": [
-    "60",
+    "61",
     0
    ],
    "filename_prefix": "velocity_rig/shot",

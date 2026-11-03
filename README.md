@@ -1,12 +1,10 @@
 # Velocity Rig
 
-**Camera-rig simulation for high-speed vehicle shots: pick a subject, a world and one of 45 mounts and lenses, and get a hard-cut reel with engine sound, on open weights end to end.**
+**Camera-rig simulation for high-speed vehicle shots: pick a subject, a world and one of 50 mounts and lenses, and get a hard-cut reel with engine sound, on open weights end to end.**
 
-![Velocity Rig: an open-weights jet chase through a canyon, hard cuts between camera rigs](docs/hero.gif)
+![Velocity Rig: open-weights canyon race between an original rally buggy and an armored truck, hard cuts between camera rigs](docs/car_mountain.gif)
 
-*First 7 s of a 6-shot jet canyon reel, rendered entirely on open weights in one ComfyUI prompt. The plates below are its first frames: two Z-Image vehicle refs (top), then one Qwen Image Edit plate per camera rig.*
-
-![Velocity Rig jet plates](docs/jet_plates.jpg)
+*High-speed canyon race: an original tube-frame rally buggy (#27) chased by an armored off-road truck (#14) through alpine canyon switchbacks. Rendered 100% locally on open weights in one ComfyUI prompt (Z-Image Turbo plates + LTX-2.5 22B motion + VelocityFX + Motion Trim).*
 
 Open weights only: Z-Image Turbo draws the vehicles, Qwen Image Edit 2511 keeps every plate on the same design, LTX-2.5 22B distilled animates it with synchronized audio.
 There is no closed-model backend anywhere in this repository (no hosted image API, no partner node), and no shipped workflow references one.
@@ -15,16 +13,17 @@ There is no closed-model backend anywhere in this repository (no hosted image AP
 
 Higgsfield's draw is cinematography presets: FPV and drone moves, vehicle-mounted cameras, crash zooms, speed ramps. Velocity Rig rebuilds that as open ComfyUI nodes and a library you can read:
 
-- **45 camera rigs** in three families (vehicle-mounted, chase/aerial, trackside), each with its lens, its motion wording, its default action and its FX recipe.
+- **50 camera rigs** in three families (vehicle-mounted, chase/aerial, trackside), each with its lens, its motion wording, its default action and its FX recipe.
 - **6 subjects** (cars, GP superbikes, fighter jets, jet pilot POV, downhill MTB, speedboats), **6 visual styles**, **16 worlds**, 9 lights, 35 action beats and 3 aspect ratios.
 - **A race sequence**: `auto (race sequence)` walks a curated arc (launch, bumper draft, hard brake, wheel-cam hairpin, FPV drift, door-mount overtake, reverse bumper defense, whip-pan finish) and switches rig every shot.
+- **Velocity Motion Trim** (`VelocityMotionTrim`): automatically cuts LTX-2.5 static 4-frame startup hold and dead tail drift by measuring frame-to-frame motion energy, then speeds the kept action window to 1.2x with synchronized engine audio.
 - **Mount physics as post FX** (`VelocityFX`): rig shake, radial speed blur that keeps the vehicle sharp, zoom punch, chroma fringing, speed ramp. The frame count never changes, so the LTX audio stays in sync.
 - **Identity lock**: Z-Image draws a hero and a rival once, or you upload your own vehicle and a pilot selfie; Qwen Image Edit then renders every plate from those refs.
 
 ## What you can pick
 
 - **6 vehicle types**: car, GP superbike, fighter jet, jet pilot POV (your selfie in the cockpit), downhill MTB, speedboat. The vehicle itself is free text or your photo.
-- **45 camera rigs** (wheel, door, bumper, roof, exhaust, underbody, cockpit, mirror, FPV dive and chase, helicopter, roadside whip pan, crash zoom, and bike, jet and boat mounts), plus **Velocity Rig Builder**: 19 mount anchors x 5 pitches x 7 lenses x 4 stabilizers (about 2,600 custom rigs).
+- **50 camera rigs** (wheel, door, bumper, roof, exhaust, underbody, cockpit, mirror, FPV dive and chase, helicopter, roadside whip pan, crash zoom, canyon rock-face tracking, rear wing aero cam, apex ground cam, front fender dive, canyon rim dive, and bike, jet and boat mounts), plus **Velocity Rig Builder**: 19 mount anchors x 5 pitches x 7 lenses x 4 stabilizers (about 2,600 custom rigs).
 - **16 worlds** or your own text, **9 lights**, **35 actions** (drift, overtake, near miss, jump, barrel roll, wave skip...), **6 visual styles**, 16:9 / 9:16 / 2.35:1.
 
 ## Nodes

@@ -4,7 +4,7 @@ Pure Python (no ComfyUI imports), so the node pack, the batch runner and tests a
 
     shot = compose(car="a gloss teal wedge coupe #27", rival="a gloss crimson widebody fastback #14",
                    world="mountain pass", rig="auto (race sequence)", shot_index=0, intensity=0.85, seed=7)
-    shot["plate_prompt"]   # first frame for Z-Image / Qwen edit, framed the way the rig sees the race
+    shot["plate_prompt"]   # first frame for Nano Banana / Codex / Z-Image / Qwen edit, framed the way the rig sees the race
     shot["motion_prompt"]  # LTX-2.5 prompt: camera move, race action beat, speed cues and engine sound
     shot["fx"]             # Velocity FX defaults for this rig (shake, speed blur, zoom punch, chroma, ramp)
 
@@ -107,6 +107,10 @@ ARCHETYPES = {
         video_neg="pc game, console game, video game, HUD, speedometer overlay, cartoon, childish, ugly, static camera, slow motion, "
                   "still frame, frozen, text, watermark, logo, subtitles, deformed car, extra wheels, morphing car, car changes shape, "
                   "people, faces, brand badges, camera pulls back, zoom out, car shrinks into the distance, car leaves frame",
+        physics="Real weight and grip: the suspension compresses and rebounds over every bump, the body rolls in the turns, "
+                "the car squats under power and the nose dives under braking, the tires bite and throw up {surface}, the "
+                "driver makes quick steering corrections, and the camera jolts on every bump.",
+        livery="The race number is painted once on each door, large, plain and simple; no numbers on the bonnet, roof or bumpers.",
         hold_mount="The camera rig is bolted to the car, so the car's bodywork stays locked in the same place in frame the whole time. "
                    "The camera never pulls back, never zooms out and never separates from the car; the same part of the car "
                    "fills the same part of the frame from the first frame to the last.",
@@ -124,12 +128,17 @@ ARCHETYPES = {
             ("door mount", "overtake"),
             ("side mirror cam", "lead defense"),
             ("rear bumper (reverse)", "lead defense"),
+            ("canyon rock-face tracking", "carve a bend"),
+            ("rear wing aero cam", "flat out"),
+            ("apex ground cam", "hairpin"),
+            ("front fender dive", "overtake"),
+            ("canyon rim dive", "drift"),
             ("roadside whip pan", "finish flyby"),
             ("arm car chase", "carve a bend"),
         ],
         auto_order=["arm car chase", "wheel cam (front)", "fpv drone dive", "door mount", "roadside whip pan", "bumper cam",
                     "top-down drone", "wheel cam (rear)", "arm car orbit", "crash zoom", "exhaust close-up", "fpv drone chase",
-                    "low pass-by", "roof cam", "rear bumper (reverse)", "helicopter wide"],
+                    "low pass-by", "roof cam", "rear bumper (reverse)", "helicopter wide", "canyon rock-face tracking", "rear wing aero cam", "apex ground cam", "front fender dive", "canyon rim dive"],
     ),
     "motorcycle": dict(
         label="Superbikes & GP Prototypes",
@@ -145,7 +154,7 @@ ARCHETYPES = {
         hold_mount="The camera is bolted directly to the motorcycle chassis, so the bike's fairing, fork, or handlebar stay anchored firmly in frame the whole time. "
                    "The camera leans and tilts with the bike in every corner, never zooming out or pulling away from the machine.",
         hold_chase="The hero superbike stays large and prominent in the center third of the frame the whole time; the chase camera matches its speed and lean angle perfectly.",
-        hold_trackside="The trackside camera pans smoothly tracking the racing superbikes as they streak past inches above the asphalt.",
+        hold_trackside="The trackside camera whips to track the racing superbikes as they streak past inches above the asphalt.",
         sequence=[
             ("moto rear swingarm", "wheelie launch"),
             ("moto handlebar pov", "high-speed tuck"),
@@ -452,14 +461,14 @@ ACTIONS = {
         solo_motion="The jet breaks Mach 1, a white conical vapor shockwave flashes around the wings, and it rockets away in a sonic blast"),
     "barrel roll evade": dict(
         plate="executing a high-speed barrel roll around {rival} through the clouds, contrails spiraling off the wingtips",
-        motion="The fighter jet rolls 360 degrees smoothly over {rival}, wingtip contrails corkscrewing through the sky as it snaps back onto target",
+        motion="The fighter jet snaps a fast 360-degree roll over {rival}, wingtip contrails corkscrewing through the sky as it snaps back onto target",
         solo_plate="executing a high-speed barrel roll through the clouds, contrails spiraling off the wingtips",
-        solo_motion="The fighter jet rolls 360 degrees smoothly, wingtip contrails corkscrewing through the sky"),
+        solo_motion="The fighter jet snaps a fast 360-degree roll, wingtip contrails corkscrewing through the sky"),
     "combat formation": dict(
         plate="flying in tight supersonic tactical combat formation meters off the wing of {rival}",
         motion="Both fighter jets hold razor-sharp supersonic formation through atmospheric turbulence, sunlight glinting off the canopies",
         solo_plate="flying at supersonic speed in combat patrol trim",
-        solo_motion="The jet cruises at supersonic speed, canopy reflections shifting smoothly"),
+        solo_motion="The jet cruises at supersonic speed, canopy reflections flicking past"),
     "supersonic flyby": dict(
         plate="screaming past at Mach 1.5 meters above the terrain, kicking up a massive supersonic shockwave",
         motion="Low-altitude supersonic pass, sonic boom shockwave blasting across the terrain as the jet disappears toward the horizon",
@@ -478,9 +487,9 @@ ACTIONS = {
         solo_motion="The bike carves deep into the banked dirt berm, throwing a huge wall of roost and blasting out of the turn"),
     "big gap jump": dict(
         plate="soaring through the air on a massive 40-foot canyon gap jump side-by-side with {rival}, pine trees below",
-        motion="Both riders soar across the massive jump, wheels spinning in mid-air, land smoothly and pump into the next roller",
+        motion="Both riders soar across the massive jump, wheels spinning in mid-air, slam down, suspension bottoming out, and pump into the next roller",
         solo_plate="soaring through the air on a massive 40-foot canyon gap jump",
-        solo_motion="The rider soars across the massive jump, wheels spinning in mid-air, lands smoothly on the transition"),
+        solo_motion="The rider soars across the massive jump, wheels spinning in mid-air, slams down on the transition, suspension bottoming out"),
     "roost blowout": dict(
         plate="drifting the rear tire through loose dirt and gravel, throwing a roost fan toward the camera beside {rival}",
         motion="The rider locks the rear brake, flicks the bike sideways into a roost spray, and pedals hard out of the turn",
@@ -620,7 +629,7 @@ RIGS = {
         plate="low tracking shot from a Russian-arm crane on a chase car, just behind and to the rear quarter of {car} at bumper "
               "height in {world}, {action}",
         motion="Camera on a Russian-arm crane mounted to a chase car, holding low off the rear quarter at bumper height and "
-               "matching the cars' extreme speed. The arm swings smoothly closer, the background streaks into horizontal blur, "
+               "matching the cars' extreme speed. The arm swings in hard and fast, the operator fighting to keep up, the background streaks into horizontal blur, "
                "the wheels spin fast, the hero car stays sharp.",
         actions=["drafting", "overtake", "drift", "carve a bend"],
         fx=dict(shake=0.35, speed_blur=0.55, zoom_punch=0.0, chroma=0.15), seconds=3),
@@ -650,7 +659,7 @@ RIGS = {
         plate="bird's-eye view looking straight down from directly above, a 90-degree overhead drone shot of {car} in {world}, "
               "{action}",
         motion="Overhead drone locked straight down, tracking the cars as they slice through the corner, road markings, "
-               "tire smoke and shadows streaming beneath, the drone rotating smoothly as the cars turn.",
+               "tire smoke and shadows streaming beneath, the drone banking hard with the cars as they turn.",
         actions=["drift", "hairpin", "overtake"],
         fx=dict(shake=0.15, speed_blur=0.35, zoom_punch=0.0, chroma=0.05), seconds=3),
     "helicopter wide": dict(
@@ -676,7 +685,7 @@ RIGS = {
         motion="Ground-level camera fixed at the edge of the road. The cars blast past the lens with a violent shockwave of air "
                "and engine roar, filling the frame, grit and sparks swirling in their wake.",
         actions=["finish flyby", "flat out", "drift", "overtake"],
-        fx=dict(ramp=1.0, shake=0.75, speed_blur=0.7, zoom_punch=0.0, chroma=0.3), seconds=2),
+        fx=dict(shake=0.75, speed_blur=0.7, zoom_punch=0.0, chroma=0.3), seconds=2),
     "crash zoom": dict(
         group="trackside", lens="telephoto zoom",
         plate="low telephoto shot looking down the straight of {world} as {car} charges head-on toward the camera through heat haze, "
@@ -864,6 +873,47 @@ RIGS = {
                "the open ocean tearing away behind at breakneck speed as engines scream at redline.",
         actions=["rooster tail blast", "open water sprint", "head-to-head drag"],
         fx=dict(shake=0.65, speed_blur=0.7, zoom_punch=0.0, chroma=0.25), seconds=3),
+    "canyon rock-face tracking": dict(
+        group="chase", lens="wide cinema prime",
+        plate="high-speed tracking camera skimming alongside the sheer vertical sandstone rock face of {world}: "
+              "the striated canyon cliff streaks by in the foreground, looking down at {car} and {rival} screaming through "
+              "the narrow canyon switchback below, {action}",
+        motion="Camera tracking fast along the canyon rock face matching speed with the cars. Dust and stone texture streak "
+               "across the edge of frame, the cars power through the switchback below, suspension compressed into the turn, "
+               "tires biting the asphalt, intense echo of roaring engines reverberating off the rock walls.",
+        actions=["carve a bend", "drift", "overtake", "flat out"],
+        fx=dict(shake=0.55, speed_blur=0.6, zoom_punch=0.1, chroma=0.25), seconds=3),
+    "rear wing aero cam": dict(
+        group="mount", lens="ultra-wide action camera",
+        plate="high camera suction-mounted on the center of the rear wing spoiler of {car}, looking forward over the sloping "
+              "roofline and hood toward the road of {world} ahead: the carbon rear wing edge along the bottom, the steering front wheels visible, {action}",
+        motion="Camera locked to the rear wing, looking forward over the car roof. The roof and wing stay anchored in frame as the front "
+               "wheels steer rapidly into the canyon bends, the body squats and leans, guardrails and rock faces streak past, high-vibration aerodynamic buffet.",
+        actions=["carve a bend", "overtake", "hairpin", "flat out"],
+        fx=dict(shake=0.65, speed_blur=0.6, zoom_punch=0.05, chroma=0.25), seconds=3),
+    "apex ground cam": dict(
+        group="trackside", lens="ultra-wide action camera",
+        plate="ground-level fixed camera placed on the inside apex kerb of a tight canyon hairpin curve in {world}, looking up at the approaching {car}: "
+              "the front bumper and tire skimming millimeters past the lens, throwing road dust and gravel, {action}",
+        motion="Low fixed camera at the apex. The car roars directly into frame at speed, clipping the inside apex inches from the camera, "
+               "suspension bottoming out, tires shrieking with smoke, violent air blast rocking the frame as it blasts away into the straight.",
+        actions=["hairpin", "drift", "hard brake", "carve a bend"],
+        fx=dict(shake=0.85, speed_blur=0.7, zoom_punch=0.2, chroma=0.3), seconds=2),
+    "front fender dive": dict(
+        group="mount", lens="ultra-wide",
+        plate="extreme low suction-cup mount on the leading front fender of {car}, pointed diagonally inward across the sculpted hood toward the "
+              "cockpit and the canyon road ahead, {world}, {action}",
+        motion="Camera locked to the front fender. The front corner of the car stays rigid in frame while the canyon road tears past beneath, "
+               "front wheel steering into the bend with visible suspension travel, the rival car filling the background.",
+        actions=["overtake", "near miss", "carve a bend", "drafting"],
+        fx=dict(shake=0.6, speed_blur=0.6, zoom_punch=0.1, chroma=0.25), seconds=3),
+    "canyon rim dive": dict(
+        group="chase", lens="wide",
+        plate="FPV drone camera diving vertically down from the upper canyon rim of {world} toward {car} racing below, cliffs falling away, {action}",
+        motion="FPV drone swoops down from the canyon heights in a steep vertical dive, leveling out just meters above the rear wing of the car as "
+               "both vehicles scream through the canyon gorge, dizzying parallax.",
+        actions=["canyon trench run", "overtake", "flat out", "carve a bend"],
+        fx=dict(shake=0.5, speed_blur=0.65, zoom_punch=0.15, chroma=0.2), seconds=3),
     "boat sponson side": dict(
         group="mount", lens="wide",
         plate="camera mounted on the outer hydroplane sponson of {car} looking forward along the sculpted fiberglass hull slicing through the water in {world}, {action}",
@@ -874,6 +924,12 @@ RIGS = {
 }
 
 GROUPS = {"mount": "vehicle-mounted", "chase": "chase / aerial", "trackside": "trackside"}
+# Camera-realism FX per rig group: bolted mounts buzz and jolt, chase operators lag a little, trackside barely moves.
+GROUP_FX = {"mount": dict(vibration=0.7, bumps=0.6, grain=0.5), "chase": dict(lag=0.5, vibration=0.15, bumps=0.2, grain=0.5),
+            "trackside": dict(vibration=0.1, grain=0.5)}
+REALTIME = "Real-time speed, the action starts in the very first frame and never pauses."
+SURFACES = {"snow": "snow spray and slush", "desert": "sand and dust", "gravel": "gravel and dust", "forest": "gravel and dust",
+            "rain": "sheets of road spray", "dock": "sheets of road spray", "canyon": "sand and dust"}
 HOLD = {"mount": "The camera rig is bolted to the vehicle, so the vehicle bodywork stays locked in the same place in frame the whole time. "
                   "The camera never pulls back, never zooms out and never separates from the vehicle; the same part of the vehicle "
                   "fills the same part of the frame from the first frame to the last.",
@@ -968,13 +1024,16 @@ def compose(car: str = "", world: str = "mountain pass", rig: str = "auto (race 
     no_brand = arch["no_brand"]
     plate_prompt = (f"{cap(plate)}. {st['plate_desc']}, {r['lens']} lens, in {w['scene']}, {act_plate}. "
                     f"Intense motion blur on the background and surface while the vehicle is tack-sharp. "
-                    f"{cap(light_text)}. {no_brand}")
+                    f"{cap(light_text)}. {no_brand}" + (f" {arch['livery']}" if arch.get("livery") else ""))
     if extra.strip():
         plate_prompt += " " + extra.strip()
     
     hold_rule = arch.get("hold_" + r["group"], HOLD[r["group"]])
     engine_sound = arch.get("sound") or engine
-    motion_prompt = (f"{r['motion']} {act_motion}, {speed}, {st['motion_desc']}, through {w['scene']}. "
+    surface = next((v for k, v in SURFACES.items() if k in (w["scene"] + " " + world).lower()), "grit and tire smoke")
+    physics = arch.get("physics", "").format(surface=surface)
+    motion_prompt = (f"{REALTIME} {r['motion']} {act_motion}, {speed}, {st['motion_desc']}, through {w['scene']}. "
+                     + (f"{physics} " if physics else "") +
                      f"{cap(edge + 'high-energy cinematics')}, {light_text}. "
                      f"Sound: {engine_sound}, {w['sound']}, wind rush. "
                      f"{hold_rule} The vehicle keeps its exact shape, paint and details the whole time.")
@@ -989,6 +1048,7 @@ def compose(car: str = "", world: str = "mountain pass", rig: str = "auto (race 
     fps = 24
     fx = dict(r["fx"])
     tweak = st.get("fx_tweak", {})
+    fx.update({k: v for k, v in GROUP_FX[r["group"]].items() if k not in fx})
     fx = {k: round(v * tweak.get(k, 1.0) * (0.5 + 0.5 * intensity), 3) for k, v in fx.items()}
     return dict(rig=rig_name, group=GROUPS[r["group"]], action=act_name, car=car, rival=rival_desc,
                 subject_type=subject_type, style=style,
@@ -1075,7 +1135,7 @@ CUSTOM_ANCHORS = {
     "chase_crane_low": dict(
         group="chase", name="chase crane arm (low)",
         view="low tracking shot from a gyro-stabilized crane arm on a chase vehicle, just off the rear quarter at bumper height",
-        motion="Russian-arm crane matching speed off the rear quarter, holding low and swinging smoothly, background streaking into creamy horizontal blur while the hero stays sharp",
+        motion="Russian-arm crane matching speed off the rear quarter, holding low and swinging hard, background streaking into creamy horizontal blur while the hero stays sharp",
         default_shake=0.3, default_blur=0.55, default_punch=0.0, default_chroma=0.15,
         actions=["drafting", "overtake", "drift", "carve a bend"], seconds=3),
     "chase_orbit_sweep": dict(
@@ -1226,13 +1286,3 @@ def shot_list(n: int, **kw) -> list[dict]:
     """n consecutive shots (rig 'auto (race sequence)' walks the race spine)."""
     kw.pop("shot_index", None)
     return [compose(shot_index=i, **kw) for i in range(n)]
-
-
-def car_ref_prompt(car_desc: str, style_desc: str = "", airborne: bool = False) -> str:
-    """Studio reference shot of one vehicle, used as the identity ref for Qwen Image Edit."""
-    style_header = style_desc or "professional motorsport studio three-quarter front-and-side reference photograph"
-    where = ("flying level in mid-air against a plain soft grey sky with the landing gear fully retracted"
-             if airborne else "parked on a clean studio floor")
-    return (f"Clean {style_header} of {car_desc}, {where} under soft diffused lighting so the full vehicle silhouette, paint finish, "
-            f"racing number, aero components and wheel design are crystal clear. "
-            f"Original fictional vehicle design with no real brand badges, no logos and no text.")
