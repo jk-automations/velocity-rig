@@ -6,10 +6,6 @@
 
 *High-speed canyon race: an original tube-frame rally buggy (#27) chased by an armored off-road truck (#14) through alpine canyon switchbacks. Rendered 100% locally on open weights in one ComfyUI prompt (Z-Image Turbo plates + LTX-2.5 22B motion + VelocityFX + Motion Trim).*
 
-![Velocity Rig: Mount Fuji JDM legends run, R34 GT-R, Supra, RX-7, NSX](docs/jdm_fuji.gif)
-
-*Mount Fuji JDM Legends Run: Bayside Blue Nissan Skyline GT-R R34, Toyota Supra A80, Mazda RX-7 FD3S, and Honda NSX drifting and cruising along countryside roads under Mount Fuji. 100% open-weights local execution with synchronized engine audio.*
-
 Open weights only: Z-Image Turbo draws the vehicles, Qwen Image Edit 2511 keeps every plate on the same design, LTX-2.5 22B distilled animates it with synchronized audio.
 There is no closed-model backend anywhere in this repository (no hosted image API, no partner node), and no shipped workflow references one.
 
